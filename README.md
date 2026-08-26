@@ -1,4 +1,4 @@
-# RayGPT 2.0 — Raymundo Mobile 🤖📱
+# RayGPT 2.0 — Raymundo Mobile
 
 > Asistente de IA personalizable con RAG, MCP y Edge AI — La evolución móvil de [RayGPT](https://github.com/KenJes/RayGPT)
 
@@ -6,47 +6,47 @@
 
 ---
 
-## ✨ Funcionalidades
+## Funcionalidades
 
 | Categoría | Funcionalidad |
 |---|---|
-| 💬 **Chat** | Conversación con streaming en tiempo real, memoria persistente, dos modos de personalidad |
-| 🧠 **Edge AI** | Modelo local (Gemma 3n) para chat offline sin conexión a internet |
-| 📚 **RAG** | Sube PDFs, DOCX, TXT — haz preguntas sobre tus documentos con chunking jerárquico |
-| 🔧 **MCP Tools** | Google Calendar, YouTube, Spotify, búsqueda web via Model Context Protocol |
-| 🎙️ **Voz** | Texto a voz (TTS) + voz a texto (STT) bidireccional |
-| 🖼️ **Visión** | Análisis de imágenes con Gemini Vision |
-| 📄 **Google Workspace** | Crear Docs, Slides, Sheets, gestionar Calendar |
-| 🎵 **Spotify** | Controlar reproducción: play, pause, next, buscar canciones |
-| 🔍 **Web Search** | Búsqueda en internet y extracción de contenido web |
+| **Chat** | Conversación con streaming en tiempo real, memoria persistente, dos modos de personalidad |
+| **Edge AI** | Modelo local (Gemma 3n) para chat offline sin conexión a internet |
+| **RAG** | Sube PDFs, DOCX, TXT — haz preguntas sobre tus documentos con chunking jerárquico |
+| **MCP Tools** | Google Calendar, YouTube, Spotify, búsqueda web via Model Context Protocol |
+| **Voz** | Texto a voz (TTS) + voz a texto (STT) bidireccional |
+| **Visión** | Análisis de imágenes con Gemini Vision |
+| **Google Workspace** | Crear Docs, Slides, Sheets, gestionar Calendar |
+| **Spotify** | Controlar reproducción: play, pause, next, buscar canciones |
+| **Web Search** | Búsqueda en internet y extracción de contenido web |
 
 ---
 
-## 🏗️ Arquitectura
+## Arquitectura
 
 ```mermaid
 graph TB
-    subgraph "📱 Flutter Mobile App"
+    subgraph "Flutter Mobile App"
         UI["Chat UI + Voice I/O"]
         LocalLLM["Edge AI<br/>Gemma 3n"]
         Router["Inference Router<br/>Local vs Cloud"]
     end
 
-    subgraph "☁️ Backend FastAPI"
+    subgraph "Backend FastAPI"
         Gateway["WebSocket + REST"]
         CloudLLM["Gemini 2.5 Flash/Pro<br/>via LiteLLM"]
         RAG["RAG Pipeline<br/>Qdrant + Embeddings"]
         MCP["MCP Client Manager"]
     end
 
-    subgraph "🔧 MCP Servers"
+    subgraph "MCP Servers"
         Calendar["Google Calendar"]
         YouTube["YouTube"]
         Spotify["Spotify"]
         WebSearch["Web Search"]
     end
 
-    subgraph "💾 Data"
+    subgraph "Data"
         PG["PostgreSQL"]
         QD["Qdrant"]
         Redis["Redis"]
@@ -69,7 +69,7 @@ graph TB
 
 ---
 
-## 🛠️ Stack Tecnológico
+## Stack Tecnológico
 
 | Capa | Tecnología |
 |---|---|
@@ -90,7 +90,7 @@ graph TB
 
 ---
 
-## 📁 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```
 raygpt_mobile/
@@ -135,7 +135,7 @@ raygpt_mobile/
 
 ---
 
-## 🚀 Cómo Ejecutar
+## Cómo Ejecutar
 
 ### Requisitos Previos
 - Flutter SDK 3.x
@@ -170,21 +170,10 @@ flutter pub get
 flutter run
 ```
 
-### Variables de Entorno (`.env`)
 
-```env
-GEMINI_API_KEY=tu-api-key-de-gemini
-DATABASE_URL=postgresql+asyncpg://raymundo:password@localhost:5432/raygpt
-REDIS_URL=redis://localhost:6379/0
-QDRANT_URL=http://localhost:6333
-JWT_SECRET=tu-clave-secreta-jwt
-```
+## Créditos
 
----
-
-## 🤝 Créditos
-
-Desarrollado por **Kenneth Alcalá** — [Axoloit](https://github.com/KenJes)
+Desarrollado por **Kenneth Alcalá** — [Axoloit](www.axoloit.com/kenneth)
 
 Evolución de [RayGPT v1](https://github.com/KenJes/RayGPT)
 
