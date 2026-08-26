@@ -4,10 +4,14 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 from app.core.rag.chunking import Chunk
 
+from app.config import settings
+
 class QdrantRetriever:
-    def __init__(self, url: str = "http://localhost:6333", collection_name: str = "raygpt_knowledge"):
-        # Use local path instead of URL so Docker is not strictly required
-        self.client = AsyncQdrantClient(path="./qdrant_data")
+    def __init__(self, collection_name: str = "raygpt_knowledge"):
+        if settings.qdrant_url == "local":
+            self.client = AsyncQdrantClient(path=settings.qdrant_path)
+        else:
+            self.client = AsyncQdrantClient(url=settings.qdrant_url)
         self.collection_name = collection_name
         self.vector_size = 384 # For all-MiniLM-L6-v2
 

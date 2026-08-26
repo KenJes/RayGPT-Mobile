@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     database_url: str = Field(default="sqlite+aiosqlite:///./raygpt.db")
     redis_url: str = Field(default="memory")
     qdrant_url: str = Field(default="http://localhost:6333")
+    qdrant_path: str = Field(default="./qdrant_data")
     
     jwt_secret: str = Field(default="dev_secret")
     
