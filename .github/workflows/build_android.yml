@@ -1,0 +1,41 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permite compilar manualmente desde la web de GitHub
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Clonar el repositorio
+        uses: actions/checkout@v4
+
+      - name: ☕ Configurar Java (Requisito para Android)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 🐦 Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.24.0' # Versión estable recomendada
+
+      - name: 📦 Instalar dependencias de Flutter
+        run: flutter pub get
+
+      - name: 🛠️ Construir el APK de Android
+        run: flutter build apk --release
+
+      - name: 🚀 Subir APK para descargar
+        uses: actions/upload-artifact@v4
+        with:
+          name: Raymundo-App-Release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
