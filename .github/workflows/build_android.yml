@@ -1,9 +1,8 @@
 name: Build Android APK
 
+# Compila la app vieja de Flutter (su modelo local era un simulacro). Ya no corre en cada
+# push porque la app actual es la web de web/; queda solo para lanzarla a mano.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch: # Permite compilar manualmente desde la web de GitHub
 
 jobs:

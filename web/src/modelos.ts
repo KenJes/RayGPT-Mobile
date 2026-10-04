@@ -2,7 +2,7 @@
 // requiere la extensión WebGPU "shader-f16") y, cuando existe, una q4f32 de respaldo.
 // Los IDs vienen de prebuiltAppConfig de @mlc-ai/web-llm 0.2.85.
 
-export type NivelId = "ligero" | "recomendado" | "potente";
+export type NivelId = "ligero" | "recomendado" | "potente" | "maximo";
 
 export interface Variante {
   modelo: string;
@@ -15,6 +15,7 @@ export interface Nivel {
   id: NivelId;
   nombre: string;
   descripcion: string;
+  soloComputadora?: boolean; // no se ofrece en celulares
   f16: Variante;
   f32?: Variante;
 }
@@ -37,11 +38,23 @@ export const NIVELES: Nivel[] = [
   {
     id: "potente",
     nombre: "Potente",
-    descripcion: "El más listo; para gama alta (8 GB de RAM o más).",
+    descripcion: "Más listo; para celulares de gama alta (8 GB de RAM o más) y computadoras.",
     f16: { modelo: "Qwen3.5-2B-q4f16_1-MLC", nombre: "Qwen 3.5 2B", vramMB: 2245, descargaMB: 1059 },
     f32: { modelo: "Qwen3.5-2B-q4f32_1-MLC", nombre: "Qwen 3.5 2B", vramMB: 2592, descargaMB: 1059 },
   },
+  {
+    id: "maximo",
+    nombre: "Máximo",
+    descripcion: "El mismo modelo que Raymundo de escritorio. Solo computadoras con GPU de 8 GB o más.",
+    soloComputadora: true,
+    f16: { modelo: "Qwen3.5-9B-q4f16_1-MLC", nombre: "Qwen 3.5 9B", vramMB: 6433, descargaMB: 5038 },
+    f32: { modelo: "Qwen3.5-9B-q4f32_1-MLC", nombre: "Qwen 3.5 9B", vramMB: 7545, descargaMB: 5038 },
+  },
 ];
+
+export function nivelesPara(d: Dispositivo): Nivel[] {
+  return NIVELES.filter((n) => !n.soloComputadora || !d.movil);
+}
 
 export interface Dispositivo {
   webgpu: boolean;

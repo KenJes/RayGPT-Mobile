@@ -4,7 +4,16 @@ import { CreateWebWorkerMLCEngine, prebuiltAppConfig, type AppConfig, type InitP
 
 export const APP_CONFIG: AppConfig = prebuiltAppConfig;
 
-export async function crearMotor(modelo: string, progreso: InitProgressCallback): Promise<MLCEngineInterface> {
+export async function crearMotor(
+  modelo: string,
+  progreso: InitProgressCallback,
+): Promise<{ motor: MLCEngineInterface; liberar: () => void }> {
   const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
-  return CreateWebWorkerMLCEngine(worker, modelo, { initProgressCallback: progreso, appConfig: APP_CONFIG });
+  try {
+    const motor = await CreateWebWorkerMLCEngine(worker, modelo, { initProgressCallback: progreso, appConfig: APP_CONFIG });
+    return { motor, liberar: () => worker.terminate() };
+  } catch (e) {
+    worker.terminate();
+    throw e;
+  }
 }

@@ -4,10 +4,43 @@ import { APP_CONFIG, crearMotor } from "./crear-motor";
 import type { Mensaje } from "./persona";
 
 let motor: MLCEngineInterface | null = null;
+let liberarMotor: () => void = () => {};
 let modeloCargado: string | null = null;
 
 export function modeloActual() {
   return modeloCargado;
+}
+
+// Cuando el celular le quita la GPU al navegador (pantalla bloqueada, cambio de app, poca
+// memoria), WebLLM descarga el modelo sin avisar: solo lo escribe en la consola. Guardamos
+// ese motivo para poder mostrarlo.
+let motivoPerdida: string | null = null;
+const errorOriginal = console.error.bind(console);
+console.error = (...args: unknown[]) => {
+  const texto = args.map(String).join(" ");
+  if (/device (was )?lost/i.test(texto)) motivoPerdida = texto;
+  errorOriginal(...args);
+};
+
+export function ultimoMotivoPerdida() {
+  return motivoPerdida;
+}
+
+export { esPerdidaDeGPU } from "./errores";
+
+// Tira el motor actual (con su GPU muerta) para que el siguiente `cargar` empiece de cero.
+export async function reiniciar(): Promise<void> {
+  const viejo = motor;
+  const liberar = liberarMotor;
+  motor = null;
+  liberarMotor = () => {};
+  modeloCargado = null;
+  try {
+    await viejo?.unload();
+  } catch {
+    /* ya estaba muerto */
+  }
+  liberar();
 }
 
 export async function estaDescargado(modelo: string): Promise<boolean> {
@@ -22,21 +55,24 @@ export async function cargar(modelo: string, progreso: (r: InitProgressReport) =
   if (motor && modeloCargado === modelo) return;
   // Pedimos almacenamiento persistente para que el sistema no borre el modelo al rato.
   navigator.storage?.persist?.().catch(() => {});
+  motivoPerdida = null;
 
   if (!motor) {
-    motor = await crearMotor(modelo, progreso);
+    ({ motor, liberar: liberarMotor } = await crearMotor(modelo, progreso));
   } else {
     motor.setInitProgressCallback(progreso);
-    await motor.reload(modelo);
+    try {
+      await motor.reload(modelo);
+    } catch (e) {
+      await reiniciar();
+      throw e;
+    }
   }
   modeloCargado = modelo;
 }
 
 export async function borrarDescarga(modelo: string): Promise<void> {
-  if (motor && modeloCargado === modelo) {
-    await motor.unload();
-    modeloCargado = null;
-  }
+  if (motor && modeloCargado === modelo) await reiniciar();
   await deleteModelAllInfoInCache(modelo, APP_CONFIG);
 }
 
@@ -54,7 +90,7 @@ export async function generar(
   alRecibir: (acumulado: string) => void,
   maxTokens = 512,
 ): Promise<ResultadoGeneracion> {
-  if (!motor) throw new Error("El modelo todavía no está cargado.");
+  if (!motor) throw new Error("Model not loaded: el modelo todavía no está cargado.");
   interrumpido = false;
   const inicio = performance.now();
 
@@ -63,7 +99,8 @@ export async function generar(
     stream: true,
     stream_options: { include_usage: true },
     max_tokens: maxTokens,
-    temperature: 0.7,
+    // Un poco más baja que en escritorio: los modelos chicos inventan más con temperatura alta.
+    temperature: 0.6,
     top_p: 0.9,
     frequency_penalty: 0.3,
     // Qwen3/3.5 "piensan" antes de contestar; en el celular eso sólo gasta batería.

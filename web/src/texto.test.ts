@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { armarMensajes } from "./contexto";
+import { esPerdidaDeGPU } from "./errores";
 import { interpretar, SYSTEM_PROMPT } from "./persona";
 import { limpiarMarkdown, mexicanizar, procesarRespuesta, quitarPensamiento } from "./texto";
 
@@ -57,6 +58,23 @@ describe("comandos", () => {
   it("lo que no es comando va como plática", () => {
     expect(interpretar("/ruta/a/archivo no es comando").tipo).toBe("chat");
     expect(interpretar("hola").tipo).toBe("chat");
+  });
+});
+
+describe("esPerdidaDeGPU", () => {
+  it("reconoce los errores que salen cuando el celular suelta la GPU", () => {
+    const sinModelo = new Error(
+      "Model not loaded before trying to complete ChatCompletionRequest. Please ensure you have called MLCEngine.reload(model)",
+    );
+    sinModelo.name = "ModelNotLoadedError";
+    expect(esPerdidaDeGPU(sinModelo)).toBe(true);
+    expect(
+      esPerdidaDeGPU(new Error("Failed to execute 'mapAsync' on 'GPUBuffer': Buffer was unmapped before mapping was resolved.")),
+    ).toBe(true);
+  });
+  it("no confunde otros errores", () => {
+    expect(esPerdidaDeGPU(new Error("Failed to fetch"))).toBe(false);
+    expect(esPerdidaDeGPU(new Error("Last message should be from either `user` or `tool`."))).toBe(false);
   });
 });
 

@@ -4,6 +4,10 @@ import { CreateMLCEngine, prebuiltAppConfig, type AppConfig, type InitProgressCa
 
 export const APP_CONFIG: AppConfig = { ...prebuiltAppConfig, cacheBackend: "indexeddb" };
 
-export async function crearMotor(modelo: string, progreso: InitProgressCallback): Promise<MLCEngineInterface> {
-  return CreateMLCEngine(modelo, { initProgressCallback: progreso, appConfig: APP_CONFIG });
+export async function crearMotor(
+  modelo: string,
+  progreso: InitProgressCallback,
+): Promise<{ motor: MLCEngineInterface; liberar: () => void }> {
+  const motor = await CreateMLCEngine(modelo, { initProgressCallback: progreso, appConfig: APP_CONFIG });
+  return { motor, liberar: () => {} };
 }

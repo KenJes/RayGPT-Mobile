@@ -2,7 +2,7 @@ import "./estilos.css";
 import { contadorActivo, iniciarContador, registrarEvento, totalVisitantes } from "./contador";
 import { registrarPWA } from "./pwa";
 import { cargarHistorial, guardarHistorial, paraModelo, preferencias, serializar, type Entrada } from "./historial";
-import { buscarNivel, detectarDispositivo, NIVELES, nivelSugerido, varianteDe, type Dispositivo, type Nivel } from "./modelos";
+import { buscarNivel, detectarDispositivo, nivelesPara, nivelSugerido, varianteDe, type Dispositivo, type Nivel } from "./modelos";
 import { interpretar, RESPUESTA_AYUDA, RESPUESTA_RESET, respuestaFaltaTexto, SALUDO } from "./persona";
 import { procesarRespuesta, textoPlano, type Segmento } from "./texto";
 import { callar, dejarDeEscuchar, escuchar, hablar, puedeEscuchar, puedeHablar } from "./voz";
@@ -165,8 +165,9 @@ async function enviar(texto: string) {
 
   let pendiente = "";
   let cuadro = 0;
-  try {
-    const r = await (await motor()).generar(
+  const m = await motor();
+  const intentar = () =>
+    m.generar(
       paraModelo(historial),
       (acumulado) => {
         pendiente = acumulado;
@@ -179,6 +180,23 @@ async function enviar(texto: string) {
       },
       maxTokens,
     );
+
+  try {
+    let r: Awaited<ReturnType<typeof intentar>>;
+    try {
+      r = await intentar();
+    } catch (err) {
+      // El celular le quitó la GPU al navegador: recargamos el modelo (ya está guardado,
+      // no se vuelve a descargar) y reintentamos una vez sin que el usuario haga nada.
+      if (!m.esPerdidaDeGPU(err)) throw err;
+      cancelAnimationFrame(cuadro);
+      cuadro = 0;
+      cuerpo.textContent = "Se me durmió la GPU del celular, déjame despertarla…";
+      await m.reiniciar();
+      if (!(await cargarNivel(buscarNivel(preferencias.leer("nivel"))))) throw err;
+      cuerpo.textContent = "";
+      r = await intentar();
+    }
     cancelAnimationFrame(cuadro);
 
     let segmentos = procesarRespuesta(r.texto);
@@ -203,9 +221,15 @@ async function enviar(texto: string) {
     usuario.local = true;
     guardarHistorial(historial);
     burbuja.remove();
+    const detalle = err instanceof Error ? err.message : String(err);
+    const motivo = modMotor?.ultimoMotivoPerdida();
     agregar({
       role: "assistant",
-      content: `Híjole, algo falló al generar la respuesta: ${err instanceof Error ? err.message : String(err)}\n\nSi se repite, prueba con un modelo más ligero en Ajustes.`,
+      content: modMotor?.esPerdidaDeGPU(err)
+        ? "Híjole, tu celular le cortó la GPU al navegador y no la pude recuperar. Suele pasar por falta de memoria. " +
+          "Prueba cerrando otras apps y pestañas, recargando la página, o usando Chrome si estás en otro navegador." +
+          `\n\nDetalle técnico: ${motivo ?? detalle}`
+        : `Híjole, algo falló al generar la respuesta: ${detalle}\n\nSi se repite, prueba con un modelo más ligero en Ajustes.`,
       local: true,
     });
   } finally {
@@ -294,7 +318,7 @@ async function mostrarArranque() {
   const cont = $<HTMLFieldSetElement>("niveles");
   cont.replaceChildren();
 
-  for (const nivel of NIVELES) {
+  for (const nivel of nivelesPara(dispositivo)) {
     const v = varianteDe(nivel, dispositivo);
     const label = crear("label", "nivel");
     const radio = crear("input");
@@ -415,7 +439,7 @@ async function pintarModelosEnAjustes() {
   lista.replaceChildren();
   if (!dispositivo?.webgpu) return;
 
-  for (const nivel of NIVELES) {
+  for (const nivel of nivelesPara(dispositivo)) {
     const v = varianteDe(nivel, dispositivo);
     const descargado = await estaDescargado(v.modelo);
     const activo = modeloActual() === v.modelo;

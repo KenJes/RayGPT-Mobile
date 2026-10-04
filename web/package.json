@@ -8,6 +8,7 @@
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build",
     "build:html": "tsc --noEmit && vite build --mode un-archivo",
+    "local": "npm run build:html && node scripts/servir-local.mjs",
     "preview": "vite preview --host",
     "test": "vitest run",
     "icons": "node scripts/generar-iconos.mjs"
@@ -16,7 +17,9 @@
     "@mlc-ai/web-llm": "^0.2.85"
   },
   "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@webgpu/types": "^0.1.60",
+    "qrcode-terminal": "^0.12.0",
     "sharp": "^0.34.0",
     "typescript": "^5.9.0",
     "vite": "^8.0.0",

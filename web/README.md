@@ -63,6 +63,19 @@ Dónde funciona:
 
 El workflow `.github/workflows/deploy_web.yml` corre las pruebas, compila y publica en GitHub Pages en cada push a `main` que toque `web/`. Hay que activar Pages una vez en *Settings → Pages → Source: GitHub Actions*. La app queda en `https://<usuario>.github.io/<repo>/` (en el repo RayGPT: `https://kenjes.github.io/RayGPT/`). El workflow toma el nombre del repo solo, no hay que cambiar nada.
 
+## Servir desde tu computadora (sin GitHub)
+
+```bash
+npm run local
+```
+
+Compila `raymundo.html` y lo sirve por HTTPS en el puerto 8443 a todos los celulares de tu misma red. En la terminal salen la dirección (`https://<tu-ip>:8443/raymundo.html`) y un código QR para escanear.
+
+- El certificado es autofirmado: la primera vez cada celular avisa "La conexión no es privada". Hay que tocar *Configuración avanzada → Continuar*. Va por HTTPS porque sin él los celulares no dejan usar WebGPU.
+- La primera vez Windows pregunta si Node.js puede usar la red: permite *redes privadas*.
+- Muchas redes de eventos aíslan a los dispositivos entre sí; si los celulares no llegan a tu compu, comparte internet desde la compu (hotspot) y que se conecten a ella.
+- El modelo se sigue descargando de Hugging Face, así que los celulares necesitan internet la primera vez.
+
 ## Contador de uso (GoatCounter)
 
 La app puede contar cuántas personas la usan con [GoatCounter](https://www.goatcounter.com): gratis, sin cookies y sin datos personales. Las pláticas nunca se mandan.
