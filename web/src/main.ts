@@ -3,7 +3,16 @@ import { contadorActivo, iniciarContador, registrarEvento, totalVisitantes } fro
 import { registrarPWA } from "./pwa";
 import { cargarHistorial, guardarHistorial, paraModelo, preferencias, serializar, type Entrada } from "./historial";
 import { buscarNivel, detectarDispositivo, nivelesPara, nivelSugerido, varianteDe, type Dispositivo, type Nivel } from "./modelos";
-import { interpretar, RESPUESTA_AYUDA, RESPUESTA_RESET, respuestaFaltaTexto, SALUDO } from "./persona";
+import {
+  interpretar,
+  RESPUESTA_A_RAI,
+  RESPUESTA_A_RAYMUNDO,
+  RESPUESTA_AYUDA,
+  RESPUESTA_RESET,
+  respuestaFaltaTexto,
+  SALUDO,
+  type Personalidad,
+} from "./persona";
 import { procesarRespuesta, textoPlano, type Segmento } from "./texto";
 import { callar, dejarDeEscuchar, escuchar, hablar, puedeEscuchar, puedeHablar } from "./voz";
 
@@ -31,6 +40,13 @@ let dispositivo: Dispositivo;
 let generando = false;
 let listo = false;
 let leerEnVoz = preferencias.leer("voz") === "1";
+let personalidad: Personalidad = preferencias.leer("personalidad") === "rai" ? "rai" : "raymundo";
+
+function cambiarPersonalidad(p: Personalidad) {
+  personalidad = p;
+  preferencias.escribir("personalidad", p);
+  $<HTMLElement>("nombre").textContent = p === "rai" ? "rAI" : "Raymundo";
+}
 
 // ---------- Pintar mensajes ----------
 
@@ -138,9 +154,21 @@ async function enviar(texto: string) {
   if (intento.tipo === "reset") {
     historial = [];
     guardarHistorial(historial);
+    cambiarPersonalidad("raymundo");
     chat.replaceChildren();
     agregar({ role: "assistant", content: RESPUESTA_RESET, local: true });
     return;
+  }
+  if (intento.tipo === "personalidad") {
+    cambiarPersonalidad(intento.cual);
+    if (intento.cual === "rai") registrarEvento("modo-rai");
+    // "/rai <mensaje>": cambia de modo y contesta ese mensaje ya como rAI.
+    if (!intento.texto) {
+      agregar({ role: "user", content: texto, local: true });
+      agregar({ role: "assistant", content: intento.cual === "rai" ? RESPUESTA_A_RAI : RESPUESTA_A_RAYMUNDO, local: true });
+      return;
+    }
+    return enviar(intento.texto);
   }
   if (intento.tipo === "ayuda" || intento.tipo === "falta-texto") {
     agregar({ role: "user", content: texto, local: true });
@@ -179,6 +207,7 @@ async function enviar(texto: string) {
         });
       },
       maxTokens,
+      personalidad,
     );
 
   try {
@@ -488,6 +517,7 @@ async function pintarModelosEnAjustes() {
 // ---------- Inicio ----------
 
 async function iniciar() {
+  cambiarPersonalidad(personalidad);
   pintarTodo();
   actualizarBotones();
   dispositivo = await detectarDispositivo();

@@ -1,4 +1,4 @@
-import { EJEMPLOS, SYSTEM_PROMPT, type Mensaje } from "./persona";
+import { promptDe, type Mensaje, type Personalidad } from "./persona";
 
 // Los modelos del catálogo tienen ventana de 4096 tokens. Reservamos espacio para
 // la respuesta y recortamos la plática más vieja cuando ya no cabe.
@@ -9,8 +9,14 @@ export function estimarTokens(texto: string): number {
   return Math.ceil(texto.length / 3.2) + 4;
 }
 
-export function armarMensajes(historial: Mensaje[], maxRespuesta: number, ventana = VENTANA_TOKENS): Mensaje[] {
-  const fijos: Mensaje[] = [{ role: "system", content: SYSTEM_PROMPT }, ...EJEMPLOS];
+export function armarMensajes(
+  historial: Mensaje[],
+  maxRespuesta: number,
+  personalidad: Personalidad = "raymundo",
+  ventana = VENTANA_TOKENS,
+): Mensaje[] {
+  const { sistema, ejemplos } = promptDe(personalidad);
+  const fijos: Mensaje[] = [{ role: "system", content: sistema }, ...ejemplos];
   let disponible = ventana - maxRespuesta - fijos.reduce((n, m) => n + estimarTokens(m.content), 0);
 
   const elegidos: Mensaje[] = [];

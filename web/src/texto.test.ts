@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { armarMensajes } from "./contexto";
 import { esPerdidaDeGPU } from "./errores";
-import { interpretar, SYSTEM_PROMPT } from "./persona";
+import { interpretar, SYSTEM_PROMPT, SYSTEM_PROMPT_RAI } from "./persona";
 import { limpiarMarkdown, mexicanizar, procesarRespuesta, quitarPensamiento } from "./texto";
 
 describe("limpiarMarkdown", () => {
@@ -55,6 +55,11 @@ describe("comandos", () => {
     expect(r.tipo).toBe("plantilla");
     if (r.tipo === "plantilla") expect(r.prompt).toContain("good morning");
   });
+  it("cambia de personalidad con /rai y /ray", () => {
+    expect(interpretar("/rai")).toEqual({ tipo: "personalidad", cual: "rai", texto: "" });
+    expect(interpretar("/rai eres un inútil")).toEqual({ tipo: "personalidad", cual: "rai", texto: "eres un inútil" });
+    expect(interpretar("/Raymundo")).toEqual({ tipo: "personalidad", cual: "raymundo", texto: "" });
+  });
   it("lo que no es comando va como plática", () => {
     expect(interpretar("/ruta/a/archivo no es comando").tipo).toBe("chat");
     expect(interpretar("hola").tipo).toBe("chat");
@@ -79,9 +84,16 @@ describe("esPerdidaDeGPU", () => {
 });
 
 describe("armarMensajes", () => {
+  it("usa el prompt de rAI cuando está en ese modo", () => {
+    const m = armarMensajes([{ role: "user", content: "hola" }], 512, "rai");
+    expect(m[0].role).toBe("system");
+    expect(m[0].content.startsWith(SYSTEM_PROMPT_RAI)).toBe(true);
+  });
   it("pone el system prompt primero y termina con el usuario", () => {
     const m = armarMensajes([{ role: "user", content: "hola" }], 512);
-    expect(m[0]).toEqual({ role: "system", content: SYSTEM_PROMPT });
+    expect(m[0].role).toBe("system");
+    expect(m[0].content.startsWith(SYSTEM_PROMPT)).toBe(true);
+    expect(m).toHaveLength(2); // los ejemplos van dentro del system prompt, no como turnos
     expect(m.at(-1)).toEqual({ role: "user", content: "hola" });
   });
   it("recorta la plática vieja cuando no cabe", () => {

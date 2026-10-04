@@ -1,7 +1,7 @@
 import { deleteModelAllInfoInCache, hasModelInCache, type InitProgressReport, type MLCEngineInterface } from "@mlc-ai/web-llm";
 import { armarMensajes } from "./contexto";
 import { APP_CONFIG, crearMotor } from "./crear-motor";
-import type { Mensaje } from "./persona";
+import type { Mensaje, Personalidad } from "./persona";
 
 let motor: MLCEngineInterface | null = null;
 let liberarMotor: () => void = () => {};
@@ -89,18 +89,20 @@ export async function generar(
   historial: Mensaje[],
   alRecibir: (acumulado: string) => void,
   maxTokens = 512,
+  personalidad: Personalidad = "raymundo",
 ): Promise<ResultadoGeneracion> {
   if (!motor) throw new Error("Model not loaded: el modelo todavía no está cargado.");
   interrumpido = false;
   const inicio = performance.now();
 
   const flujo = await motor.chat.completions.create({
-    messages: armarMensajes(historial, maxTokens),
+    messages: armarMensajes(historial, maxTokens, personalidad),
     stream: true,
     stream_options: { include_usage: true },
     max_tokens: maxTokens,
-    // Un poco más baja que en escritorio: los modelos chicos inventan más con temperatura alta.
-    temperature: 0.6,
+    // Raymundo un poco más bajo que en escritorio (los modelos chicos inventan más);
+    // rAI más alto para que la carrilla salga variada.
+    temperature: personalidad === "rai" ? 0.8 : 0.6,
     top_p: 0.9,
     frequency_penalty: 0.3,
     // Qwen3/3.5 "piensan" antes de contestar; en el celular eso sólo gasta batería.
