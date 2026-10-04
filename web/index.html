@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es-MX">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#0b1220" />
+    <meta name="description" content="Raymundo, creado por Kenneth Alcalá, corriendo 100% en tu celular con WebLLM. Sin nube, sin tokens." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <title>Raymundo</title>
+  </head>
+  <body>
+    <header class="barra">
+      <img class="logo" src="icons/icon.svg" alt="" width="32" height="32" />
+      <div class="titulo">
+        <strong>Raymundo</strong>
+        <span id="estado" class="estado">Preparando…</span>
+      </div>
+      <button id="btn-ajustes" class="icono" aria-label="Ajustes" title="Ajustes">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Zm7.43-2.53a7.8 7.8 0 0 0 0-1.94l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.3 7.3 0 0 0-1.68-.97l-.36-2.54A.5.5 0 0 0 14.13 2h-3.84a.5.5 0 0 0-.5.42l-.36 2.54c-.6.24-1.17.57-1.68.97l-2.39-.96a.5.5 0 0 0-.6.22L2.84 8.51a.5.5 0 0 0 .12.64l2.03 1.58a7.8 7.8 0 0 0 0 1.94l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.13.22.39.31.6.22l2.39-.96c.51.4 1.08.73 1.68.97l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.6-.24 1.17-.57 1.68-.97l2.39.96c.23.09.48 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58Z"/></svg>
+      </button>
+    </header>
+
+    <main id="chat" class="chat" aria-live="polite"></main>
+
+    <section id="arranque" class="arranque" hidden>
+      <div class="tarjeta">
+        <h1>Raymundo en tu celular</h1>
+        <p class="sub">Corre completito en tu dispositivo con WebGPU: sin nube, sin cuentas y sin gastar tokens. Se descarga una sola vez y después funciona sin internet.</p>
+        <div id="dispositivo" class="dispositivo"></div>
+        <fieldset id="niveles" class="niveles"></fieldset>
+        <p class="nota">Te recomendamos usar Wi-Fi para la descarga.</p>
+        <button id="btn-descargar" class="primario">Descargar y empezar</button>
+        <div id="progreso" class="progreso" hidden>
+          <div class="pista"><div id="progreso-barra" class="relleno"></div></div>
+          <span id="progreso-texto"></span>
+        </div>
+        <p id="error-arranque" class="error" hidden></p>
+      </div>
+    </section>
+
+    <form id="composer" class="composer" autocomplete="off">
+      <button type="button" id="btn-mic" class="icono" aria-label="Dictar" title="Dictar" hidden>
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/></svg>
+      </button>
+      <textarea id="entrada" rows="1" placeholder="Escríbele a Raymundo…" enterkeyhint="send" disabled></textarea>
+      <button type="submit" id="btn-enviar" class="icono enviar" aria-label="Enviar" title="Enviar" disabled>
+        <svg class="ico-enviar" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.39 10l12.6 2-12.6 2z"/></svg>
+        <svg class="ico-detener" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+      </button>
+    </form>
+
+    <dialog id="ajustes" class="ajustes">
+      <form method="dialog">
+        <h2>Ajustes</h2>
+        <label class="fila"><input type="checkbox" id="opt-voz" /> Leer las respuestas en voz alta</label>
+        <h3>Modelo</h3>
+        <p id="info-modelo" class="nota"></p>
+        <div id="lista-modelos" class="lista-modelos"></div>
+        <h3>Plática</h3>
+        <button type="button" id="btn-borrar-platica" class="secundario">Borrar plática</button>
+        <p id="visitantes" class="nota" hidden></p>
+        <p class="nota">RayGPT Mobile · Creado por Kenneth Alcalá. <span id="privacidad"></span></p>
+        <button class="primario" value="cerrar">Listo</button>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
