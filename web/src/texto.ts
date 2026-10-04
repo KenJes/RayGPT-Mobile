@@ -50,6 +50,14 @@ const REGIONALISMOS: Array<[RegExp, string | ((m: string, ...g: string[]) => str
   [/\bguay\b/gi, (m) => conMismaMayuscula(m, "chido")],
   [/\b(el|tu|mi|su|un|del|al)\s+móvil\b/gi, (_m, art) => `${art} celular`],
   [/\b(los|tus|mis|sus|unos)\s+móviles\b/gi, (_m, art) => `${art} celulares`],
+  // Voseo argentino que a veces se les escapa a los modelos chicos.
+  [/\bsabés\b/gi, (m) => conMismaMayuscula(m, "sabes")],
+  [/\btenés\b/gi, (m) => conMismaMayuscula(m, "tienes")],
+  [/\bquerés\b/gi, (m) => conMismaMayuscula(m, "quieres")],
+  [/\bpodés\b/gi, (m) => conMismaMayuscula(m, "puedes")],
+  [/\bhacés\b/gi, (m) => conMismaMayuscula(m, "haces")],
+  [/\bdecís\b/gi, (m) => conMismaMayuscula(m, "dices")],
+  [/\bsos\b/g, "eres"],
   // "Vale, ..." al inicio de una frase -> "Sale, ..."
   [/(^|[.!?¡¿]\s+)Vale([,.!])/g, (_m, antes, signo) => `${antes}Sale${signo}`],
 ];

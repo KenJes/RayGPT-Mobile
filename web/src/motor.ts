@@ -15,6 +15,7 @@ export function modeloActual() {
 // memoria), WebLLM descarga el modelo sin avisar: solo lo escribe en la consola. Guardamos
 // ese motivo para poder mostrarlo.
 let motivoPerdida: string | null = null;
+let motivoGPU: string | null = null;
 const errorOriginal = console.error.bind(console);
 console.error = (...args: unknown[]) => {
   const texto = args.map(String).join(" ");
@@ -22,8 +23,27 @@ console.error = (...args: unknown[]) => {
   errorOriginal(...args);
 };
 
+// WebLLM imprime el motivo como "[object GPUDeviceLostInfo]" y se pierde. Envolvemos
+// requestDevice para escuchar nosotros mismos device.lost y guardar reason + message.
+// (Solo alcanza al motor que corre en esta página: la versión de un solo HTML.)
+if (typeof GPUAdapter !== "undefined") {
+  const requestDevice = GPUAdapter.prototype.requestDevice;
+  GPUAdapter.prototype.requestDevice = async function (this: GPUAdapter, ...args: Parameters<GPUAdapter["requestDevice"]>) {
+    const device = await requestDevice.apply(this, args);
+    device.lost.then((info) => {
+      if (info.reason !== "destroyed") motivoGPU = `${info.reason ?? "unknown"}: ${info.message || "(sin mensaje)"}`;
+    });
+    return device;
+  };
+}
+
 export function ultimoMotivoPerdida() {
-  return motivoPerdida;
+  return motivoGPU ?? motivoPerdida;
+}
+
+// Modelos chicos (todo menos Máximo) usan el prompt compacto.
+export function usaPromptCompacto(modelo = modeloCargado) {
+  return !/-9B-/i.test(modelo ?? "");
 }
 
 export { esPerdidaDeGPU } from "./errores";
@@ -56,6 +76,7 @@ export async function cargar(modelo: string, progreso: (r: InitProgressReport) =
   // Pedimos almacenamiento persistente para que el sistema no borre el modelo al rato.
   navigator.storage?.persist?.().catch(() => {});
   motivoPerdida = null;
+  motivoGPU = null;
 
   if (!motor) {
     ({ motor, liberar: liberarMotor } = await crearMotor(modelo, progreso));
@@ -69,6 +90,20 @@ export async function cargar(modelo: string, progreso: (r: InitProgressReport) =
     }
   }
   modeloCargado = modelo;
+}
+
+// Modelos que ya no están en el catálogo: si quedaron en el dispositivo, se borran solos
+// (ya no aparecen en Ajustes y ocupan espacio que al celular le hace falta).
+const RETIRADOS = ["Qwen2.5-1.5B-Instruct-q4f16_1-MLC", "Qwen2.5-1.5B-Instruct-q4f32_1-MLC", "Qwen2.5-0.5B-Instruct-q4f32_1-MLC"];
+
+export async function limpiarRetirados(): Promise<void> {
+  for (const modelo of RETIRADOS) {
+    try {
+      if (await hasModelInCache(modelo, APP_CONFIG)) await deleteModelAllInfoInCache(modelo, APP_CONFIG);
+    } catch {
+      /* si no se puede, no pasa nada */
+    }
+  }
 }
 
 export async function borrarDescarga(modelo: string): Promise<void> {
@@ -96,15 +131,15 @@ export async function generar(
   const inicio = performance.now();
 
   const flujo = await motor.chat.completions.create({
-    messages: armarMensajes(historial, maxTokens, personalidad),
+    messages: armarMensajes(historial, maxTokens, personalidad, usaPromptCompacto()),
     stream: true,
     stream_options: { include_usage: true },
     max_tokens: maxTokens,
-    // Raymundo un poco más bajo que en escritorio (los modelos chicos inventan más);
-    // rAI más alto para que la carrilla salga variada.
-    temperature: personalidad === "rai" ? 0.8 : 0.6,
+    // Los modelos chicos se desvarían con temperatura alta; rAI en el grande sí va más alto
+    // para que la carrilla salga variada. Sin frequency_penalty: en español castiga
+    // "que", "de", "la"… y a un modelo chico le rompe la gramática.
+    temperature: personalidad === "rai" && !usaPromptCompacto() ? 0.8 : 0.6,
     top_p: 0.9,
-    frequency_penalty: 0.3,
     // Qwen3/3.5 "piensan" antes de contestar; en el celular eso sólo gasta batería.
     // Sólo a ellos: WebLLM le mete un bloque <think> vacío a cualquier modelo que lo reciba.
     ...(/^Qwen3/i.test(modeloCargado ?? "") ? { extra_body: { enable_thinking: false } } : {}),

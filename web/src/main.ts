@@ -10,6 +10,7 @@ import {
   RESPUESTA_AYUDA,
   RESPUESTA_RESET,
   respuestaFaltaTexto,
+  respuestaFija,
   SALUDO,
   type Personalidad,
 } from "./persona";
@@ -170,6 +171,14 @@ async function enviar(texto: string) {
     }
     return enviar(intento.texto);
   }
+  const fija = intento.tipo === "chat" ? respuestaFija(intento.texto, personalidad) : null;
+  if (fija) {
+    // Va al historial normal (no local) para que el modelo vea su propia respuesta después.
+    agregar({ role: "user", content: texto });
+    agregar({ role: "assistant", content: fija });
+    if (leerEnVoz) hablar(fija);
+    return;
+  }
   if (intento.tipo === "ayuda" || intento.tipo === "falta-texto") {
     agregar({ role: "user", content: texto, local: true });
     const r = intento.tipo === "ayuda" ? RESPUESTA_AYUDA : respuestaFaltaTexto(intento.comando);
@@ -257,7 +266,8 @@ async function enviar(texto: string) {
       content: modMotor?.esPerdidaDeGPU(err)
         ? "Híjole, tu celular le cortó la GPU al navegador y no la pude recuperar. Suele pasar por falta de memoria. " +
           "Prueba cerrando otras apps y pestañas, recargando la página, o usando Chrome si estás en otro navegador." +
-          `\n\nDetalle técnico: ${motivo ?? detalle}`
+          `\n\nDetalle técnico: ${motivo ?? detalle}` +
+          `\nEquipo: ${describirDispositivo(dispositivo)} · ${varianteDe(buscarNivel(preferencias.leer("nivel")), dispositivo).modelo}`
         : `Híjole, algo falló al generar la respuesta: ${detalle}\n\nSi se repite, prueba con un modelo más ligero en Ajustes.`,
       local: true,
     });
@@ -521,6 +531,7 @@ async function iniciar() {
   pintarTodo();
   actualizarBotones();
   dispositivo = await detectarDispositivo();
+  void motor().then((m) => m.limpiarRetirados());
 
   if (!dispositivo.webgpu) {
     estado.textContent = "Sin WebGPU";

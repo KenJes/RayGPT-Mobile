@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { armarMensajes } from "./contexto";
 import { esPerdidaDeGPU } from "./errores";
-import { interpretar, SYSTEM_PROMPT, SYSTEM_PROMPT_RAI } from "./persona";
+import { interpretar, respuestaFija, SYSTEM_PROMPT, SYSTEM_PROMPT_RAI } from "./persona";
 import { limpiarMarkdown, mexicanizar, procesarRespuesta, quitarPensamiento } from "./texto";
 
 describe("limpiarMarkdown", () => {
@@ -21,6 +21,9 @@ describe("mexicanizar", () => {
     expect(mexicanizar("Vale, deja el coche y agarra tu móvil y el Ordenador")).toBe(
       "Sale, deja el carro y agarra tu celular y el Computadora",
     );
+  });
+  it("corrige el voseo argentino", () => {
+    expect(mexicanizar("¿No sabés? Vos sos lo que querés")).toBe("¿No sabes? Vos eres lo que quieres");
   });
   it("no toca palabras que sólo contienen la raíz", () => {
     expect(mexicanizar("Eso vale la pena, es un valor automóvil")).toBe("Eso vale la pena, es un valor automóvil");
@@ -63,6 +66,19 @@ describe("comandos", () => {
   it("lo que no es comando va como plática", () => {
     expect(interpretar("/ruta/a/archivo no es comando").tipo).toBe("chat");
     expect(interpretar("hola").tipo).toBe("chat");
+  });
+});
+
+describe("respuestaFija", () => {
+  it("contesta fijo las preguntas de identidad", () => {
+    expect(respuestaFija("Quién es Kenneth Alcalá?", "raymundo")).toContain("desarrollador mexicano que me creó");
+    expect(respuestaFija("¿quién te creó?", "rai")).toContain("Kenneth Alcalá, wey");
+    expect(respuestaFija("quien eres", "raymundo")).toContain("Soy Raymundo");
+    expect(respuestaFija("Kenneth Alcalá", "raymundo")).not.toBeNull();
+  });
+  it("deja pasar al modelo lo demás", () => {
+    expect(respuestaFija("qué es un LLM?", "raymundo")).toBeNull();
+    expect(respuestaFija("escríbeme un poema largo sobre quién eres tú y quién te creó y por qué existes", "raymundo")).toBeNull();
   });
 });
 

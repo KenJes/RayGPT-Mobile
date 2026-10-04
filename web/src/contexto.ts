@@ -13,9 +13,10 @@ export function armarMensajes(
   historial: Mensaje[],
   maxRespuesta: number,
   personalidad: Personalidad = "raymundo",
+  compacto = false,
   ventana = VENTANA_TOKENS,
 ): Mensaje[] {
-  const { sistema, ejemplos } = promptDe(personalidad);
+  const { sistema, ejemplos } = promptDe(personalidad, compacto);
   const fijos: Mensaje[] = [{ role: "system", content: sistema }, ...ejemplos];
   let disponible = ventana - maxRespuesta - fijos.reduce((n, m) => n + estimarTokens(m.content), 0);
 
