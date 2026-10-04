@@ -32,6 +32,9 @@
 
 * { box-sizing: border-box; }
 
+/* Sin esto, clases con display: grid/flex (como .arranque o .icono) le ganan al atributo hidden. */
+[hidden] { display: none !important; }
+
 html, body { height: 100%; margin: 0; }
 
 body {

@@ -1,4 +1,4 @@
-import { readFileSync, renameSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
@@ -22,6 +22,11 @@ function unArchivo(): Plugin[] {
           .replace(/^\s*<link rel="apple-touch-icon"[^>]*>\n/m, ""),
       closeBundle() {
         renameSync(outDir + "index.html", outDir + "raymundo.html");
+        // Para que la raíz del sitio (GitHub Pages) abra raymundo.html.
+        writeFileSync(
+          outDir + "index.html",
+          '<!DOCTYPE html>\n<meta http-equiv="refresh" content="0; url=raymundo.html">\n<link rel="canonical" href="raymundo.html">\n<script>location.replace("raymundo.html")</script>\n',
+        );
       },
     },
   ];
