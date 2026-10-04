@@ -14,7 +14,8 @@
     "icons": "node scripts/generar-iconos.mjs"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.85"
+    "@mlc-ai/web-llm": "^0.2.85",
+    "@wllama/wllama": "^3.8.1"
   },
   "devDependencies": {
     "@vitejs/plugin-basic-ssl": "^2.3.0",

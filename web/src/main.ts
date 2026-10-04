@@ -226,12 +226,14 @@ async function enviar(texto: string) {
     } catch (err) {
       // El celular le quitó la GPU al navegador: recargamos el modelo (ya está guardado,
       // no se vuelve a descargar) y reintentamos una vez sin que el usuario haga nada.
-      if (!m.esPerdidaDeGPU(err)) throw err;
+      // Si el driver se trabó (VK_ERROR_DEVICE_LOST) reintentar no sirve: va directo al procesador.
+      const driverTrabado = /VK_ERROR_DEVICE_LOST|vkQueueSubmit/i.test(m.ultimoMotivoPerdida() ?? "");
+      if (!m.esPerdidaDeGPU(err) || dispositivo.cpu || driverTrabado) throw err;
       cancelAnimationFrame(cuadro);
       cuadro = 0;
       cuerpo.textContent = "Se me durmió la GPU del celular, déjame despertarla…";
       await m.reiniciar();
-      if (!(await cargarNivel(buscarNivel(preferencias.leer("nivel"))))) throw err;
+      if (!(await cargarNivel(nivelGuardado()))) throw err;
       cuerpo.textContent = "";
       r = await intentar();
     }
@@ -261,16 +263,19 @@ async function enviar(texto: string) {
     burbuja.remove();
     const detalle = err instanceof Error ? err.message : String(err);
     const motivo = modMotor?.ultimoMotivoPerdida();
+    const gpuMurio = !dispositivo.cpu && modMotor?.esPerdidaDeGPU(err);
     agregar({
       role: "assistant",
-      content: modMotor?.esPerdidaDeGPU(err)
-        ? "Híjole, tu celular le cortó la GPU al navegador y no la pude recuperar. Suele pasar por falta de memoria. " +
-          "Prueba cerrando otras apps y pestañas, recargando la página, o usando Chrome si estás en otro navegador." +
+      content: gpuMurio
+        ? "Híjole, la GPU de tu celular no aguantó (su driver se trabó y no la pude recuperar). " +
+          "No hay problema: me cambio a modo procesador. Es más lento, pero funciona en cualquier celular. " +
+          "Nada más necesito bajar mi versión para procesador una sola vez." +
           `\n\nDetalle técnico: ${motivo ?? detalle}` +
-          `\nEquipo: ${describirDispositivo(dispositivo)} · ${varianteDe(buscarNivel(preferencias.leer("nivel")), dispositivo).modelo}`
+          `\nEquipo: ${describirDispositivo(dispositivo)} · ${varianteDe(nivelGuardado(), dispositivo).modelo}`
         : `Híjole, algo falló al generar la respuesta: ${detalle}\n\nSi se repite, prueba con un modelo más ligero en Ajustes.`,
       local: true,
     });
+    if (gpuMurio) cambiarAProcesador();
   } finally {
     ponerGenerando(false);
   }
@@ -338,22 +343,44 @@ function mb(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)} GB` : `${Math.round(n)} MB`;
 }
 
-function ponerEstadoListo() {
+// El nivel elegido, o Ligero si ese nivel no tiene versión para el procesador.
+function nivelGuardado(): Nivel {
   const nivel = buscarNivel(preferencias.leer("nivel"));
-  estado.textContent = listo ? `${nivel.nombre} · corriendo en tu dispositivo` : "Sin modelo";
+  return dispositivo?.cpu && !nivel.cpu ? buscarNivel("ligero") : nivel;
+}
+
+function ponerEstadoListo() {
+  const donde = dispositivo?.cpu ? "en el procesador" : "corriendo en tu dispositivo";
+  estado.textContent = listo ? `${nivelGuardado().nombre} · ${donde}` : "Sin modelo";
   estado.classList.toggle("listo", listo);
 }
 
 function describirDispositivo(d: Dispositivo) {
+  if (d.cpu) {
+    const partes = [`Modo procesador · ${d.nucleos} núcleos`];
+    if (d.ramGB) partes.push(`~${d.ramGB} GB de RAM`);
+    partes.push(d.webgpu ? "más lento que la GPU, pero funciona en cualquier celular" : "tu navegador no tiene WebGPU");
+    return partes.join(" · ");
+  }
   const partes = [d.gpu ? `GPU ${d.gpu}` : "GPU compatible", d.f16 ? "shader-f16 ✓" : "sin shader-f16 (usaré variantes f32)"];
   if (d.ramGB) partes.push(`~${d.ramGB} GB de RAM`);
   return partes.join(" · ");
 }
 
+// La GPU no aguantó (driver que truena, p. ej. Adreno 6xx): nos pasamos al procesador.
+function cambiarAProcesador() {
+  preferencias.escribir("motor", "cpu");
+  dispositivo = { ...dispositivo, cpu: true };
+  registrarEvento("cambio-a-cpu");
+  listo = false;
+  ponerEstadoListo();
+  actualizarBotones();
+  void mostrarArranque();
+}
+
 async function mostrarArranque() {
   const sugerido = nivelSugerido(dispositivo);
-  const guardado = preferencias.leer("nivel");
-  const elegido = guardado ?? sugerido;
+  const elegido = preferencias.leer("nivel") ? nivelGuardado().id : sugerido;
   const cont = $<HTMLFieldSetElement>("niveles");
   cont.replaceChildren();
 
@@ -424,6 +451,7 @@ async function cargarNivel(nivel: Nivel): Promise<boolean> {
 }
 
 function traducirProgreso(texto: string, p: number) {
+  if (texto.startsWith("RAY:")) return texto.slice(4); // el motor de procesador ya lo manda en español
   const pct = `${Math.round(p * 100)}%`;
   if (/Fetching param cache|Loading model from cache/i.test(texto)) {
     const m = texto.match(/(\d+)MB (?:fetched|loaded)/i);
@@ -445,6 +473,9 @@ $<HTMLButtonElement>("btn-ajustes").onclick = async () => {
   const voz = $<HTMLInputElement>("opt-voz");
   voz.checked = leerEnVoz;
   voz.disabled = !puedeHablar;
+  const cpu = $<HTMLInputElement>("opt-cpu");
+  cpu.checked = !!dispositivo?.cpu;
+  cpu.disabled = !dispositivo?.webgpu; // sin WebGPU no hay de otra
   await pintarModelosEnAjustes();
   dlgAjustes.showModal();
   const visitantes = $<HTMLElement>("visitantes");
@@ -456,6 +487,17 @@ $<HTMLButtonElement>("btn-ajustes").onclick = async () => {
 $<HTMLElement>("privacidad").textContent = contadorActivo
   ? "Tus pláticas nunca salen de tu dispositivo. Solo contamos visitas de forma anónima, sin cookies."
   : "Todo se queda en tu dispositivo.";
+
+$<HTMLInputElement>("opt-cpu").onchange = (ev) => {
+  const usarCPU = (ev.target as HTMLInputElement).checked;
+  preferencias.escribir("motor", usarCPU ? "cpu" : "gpu");
+  dispositivo = { ...dispositivo, cpu: usarCPU || !dispositivo.webgpu };
+  dlgAjustes.close();
+  listo = false;
+  ponerEstadoListo();
+  actualizarBotones();
+  void mostrarArranque();
+};
 
 $<HTMLInputElement>("opt-voz").onchange = (ev) => {
   leerEnVoz = (ev.target as HTMLInputElement).checked;
@@ -471,7 +513,8 @@ $<HTMLButtonElement>("btn-borrar-platica").onclick = () => {
 async function pintarModelosEnAjustes() {
   const info = $<HTMLElement>("info-modelo");
   info.textContent = dispositivo?.webgpu
-    ? `${describirDispositivo(dispositivo)}${modeloActual() ? ` · Cargado: ${modeloActual()}` : ""}`
+    ? `${describirDispositivo(dispositivo)}${modeloActual() ? ` · Cargado: ${modeloActual()?.split("/").pop()}` : ""}` +
+      (modMotor?.hilosCPU() ? ` · ${modMotor.hilosCPU()} hilos${window.crossOriginIsolated ? "" : " (sin aislamiento)"}` : "")
     : "Este navegador no tiene WebGPU.";
 
   const lista = $<HTMLElement>("lista-modelos");
@@ -530,29 +573,13 @@ async function iniciar() {
   cambiarPersonalidad(personalidad);
   pintarTodo();
   actualizarBotones();
-  dispositivo = await detectarDispositivo();
+  dispositivo = await detectarDispositivo(preferencias.leer("motor") === "cpu");
   void motor().then((m) => m.limpiarRetirados());
+  // Sin WebGPU ya no es un callejón sin salida: se usa el procesador.
+  if (!dispositivo.webgpu) registrarEvento("sin-webgpu");
 
-  if (!dispositivo.webgpu) {
-    estado.textContent = "Sin WebGPU";
-    registrarEvento("sin-webgpu");
-    await mostrarArranque().catch(() => {});
-    $("niveles").hidden = true;
-    $("btn-descargar").hidden = true;
-    const err = $<HTMLElement>("error-arranque");
-    err.hidden = false;
-    err.textContent =
-      `${dispositivo.motivo ?? "Este navegador no puede correr modelos locales."}\n\n` +
-      "Para usar a Raymundo en tu celular necesitas:\n" +
-      "Android: Chrome 121 o más nuevo (Android 12+).\n" +
-      "iPhone/iPad: Safari con iOS 26 o más nuevo.\n" +
-      "Computadora: Chrome, Edge o Safari recientes.";
-    return;
-  }
-
-  const guardado = preferencias.leer("nivel");
-  if (guardado) {
-    const nivel = buscarNivel(guardado);
+  if (preferencias.leer("nivel")) {
+    const nivel = nivelGuardado();
     if (await estaDescargado(varianteDe(nivel, dispositivo).modelo)) {
       // Ya está en el dispositivo: lo despertamos directo, sin preguntar.
       await mostrarArranque();

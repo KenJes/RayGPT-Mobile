@@ -6,6 +6,25 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 
 const src = fileURLToPath(new URL("./src/", import.meta.url));
 
+// Service worker que agrega COOP/COEP a las páginas (ver src/pwa.un-archivo.ts).
+// "credentialless" deja seguir bajando modelos y scripts de otros dominios con CORS.
+const COI_SW = `self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener("fetch", (e) => {
+  const r = e.request;
+  if (r.mode !== "navigate" || new URL(r.url).origin !== self.location.origin) return;
+  e.respondWith(
+    fetch(r).then((res) => {
+      if (res.status === 0) return res;
+      const h = new Headers(res.headers);
+      h.set("Cross-Origin-Embedder-Policy", "credentialless");
+      h.set("Cross-Origin-Opener-Policy", "same-origin");
+      return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+    }),
+  );
+});
+`;
+
 // `vite build --mode un-archivo` genera raymundo.html: todo (app + WebLLM) en un solo
 // archivo para compartirlo. Cada quien descarga el modelo la primera vez que lo abre.
 function unArchivo(): Plugin[] {
@@ -22,6 +41,7 @@ function unArchivo(): Plugin[] {
           .replace(/^\s*<link rel="apple-touch-icon"[^>]*>\n/m, ""),
       closeBundle() {
         renameSync(outDir + "index.html", outDir + "raymundo.html");
+        writeFileSync(outDir + "coi-sw.js", COI_SW);
         // Para que la raíz del sitio (GitHub Pages) abra raymundo.html.
         writeFileSync(
           outDir + "index.html",

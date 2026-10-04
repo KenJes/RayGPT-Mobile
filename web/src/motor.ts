@@ -1,6 +1,16 @@
 import { deleteModelAllInfoInCache, hasModelInCache, type InitProgressReport, type MLCEngineInterface } from "@mlc-ai/web-llm";
 import { armarMensajes } from "./contexto";
 import { APP_CONFIG, crearMotor } from "./crear-motor";
+import {
+  borrarDescargaCPU,
+  cargarCPU,
+  detenerCPU,
+  estaDescargadoCPU,
+  generarCPU,
+  hilosCPU,
+  liberarCPU,
+  modeloCPU,
+} from "./motor-cpu";
 import type { Mensaje, Personalidad } from "./persona";
 
 let motor: MLCEngineInterface | null = null;
@@ -8,8 +18,10 @@ let liberarMotor: () => void = () => {};
 let modeloCargado: string | null = null;
 
 export function modeloActual() {
-  return modeloCargado;
+  return modeloCargado ?? modeloCPU();
 }
+
+export { hilosCPU };
 
 // Cuando el celular le quita la GPU al navegador (pantalla bloqueada, cambio de app, poca
 // memoria), WebLLM descarga el modelo sin avisar: solo lo escribe en la consola. Guardamos
@@ -43,7 +55,7 @@ export function ultimoMotivoPerdida() {
 
 // Modelos chicos (todo menos Máximo) usan el prompt compacto.
 export function usaPromptCompacto(modelo = modeloCargado) {
-  return !/-9B-/i.test(modelo ?? "");
+  return !/-9B-/i.test(modelo ?? "") || !!modeloCPU();
 }
 
 export { esPerdidaDeGPU } from "./errores";
@@ -63,7 +75,11 @@ export async function reiniciar(): Promise<void> {
   liberar();
 }
 
+// Los modelos para procesador se identifican por su URL (.gguf); los de GPU, por su ID de WebLLM.
+export const esModeloCPU = (modelo: string | null | undefined) => !!modelo && modelo.startsWith("http");
+
 export async function estaDescargado(modelo: string): Promise<boolean> {
+  if (esModeloCPU(modelo)) return estaDescargadoCPU(modelo);
   try {
     return await hasModelInCache(modelo, APP_CONFIG);
   } catch {
@@ -72,9 +88,16 @@ export async function estaDescargado(modelo: string): Promise<boolean> {
 }
 
 export async function cargar(modelo: string, progreso: (r: InitProgressReport) => void): Promise<void> {
-  if (motor && modeloCargado === modelo) return;
   // Pedimos almacenamiento persistente para que el sistema no borre el modelo al rato.
   navigator.storage?.persist?.().catch(() => {});
+
+  if (esModeloCPU(modelo)) {
+    if (motor) await reiniciar(); // soltamos la GPU: solo un modelo en memoria a la vez
+    await cargarCPU(modelo, (f, texto) => progreso({ progress: f, timeElapsed: 0, text: `RAY:${texto}` }));
+    return;
+  }
+  await liberarCPU();
+  if (motor && modeloCargado === modelo) return;
   motivoPerdida = null;
   motivoGPU = null;
 
@@ -107,6 +130,7 @@ export async function limpiarRetirados(): Promise<void> {
 }
 
 export async function borrarDescarga(modelo: string): Promise<void> {
+  if (esModeloCPU(modelo)) return borrarDescargaCPU(modelo);
   if (motor && modeloCargado === modelo) await reiniciar();
   await deleteModelAllInfoInCache(modelo, APP_CONFIG);
 }
@@ -126,9 +150,16 @@ export async function generar(
   maxTokens = 512,
   personalidad: Personalidad = "raymundo",
 ): Promise<ResultadoGeneracion> {
+  const inicio = performance.now();
+  if (modeloCPU()) {
+    const r = await generarCPU(armarMensajes(historial, maxTokens, personalidad, true), alRecibir, {
+      maxTokens,
+      temperatura: 0.6,
+    });
+    return { ...r, segundos: (performance.now() - inicio) / 1000 };
+  }
   if (!motor) throw new Error("Model not loaded: el modelo todavía no está cargado.");
   interrumpido = false;
-  const inicio = performance.now();
 
   const flujo = await motor.chat.completions.create({
     messages: armarMensajes(historial, maxTokens, personalidad, usaPromptCompacto()),
@@ -162,4 +193,5 @@ export async function generar(
 export function detener() {
   interrumpido = true;
   motor?.interruptGenerate();
+  detenerCPU();
 }

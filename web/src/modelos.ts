@@ -18,7 +18,11 @@ export interface Nivel {
   soloComputadora?: boolean; // no se ofrece en celulares
   f16: Variante;
   f32?: Variante;
+  // Versión para el procesador (wllama/llama.cpp): `modelo` es la URL del .gguf.
+  cpu?: Variante;
 }
+
+const GGUF = (repo: string, archivo: string) => `https://huggingface.co/${repo}/resolve/main/${archivo}`;
 
 export const NIVELES: Nivel[] = [
   {
@@ -27,6 +31,12 @@ export const NIVELES: Nivel[] = [
     descripcion: "Para la mayoría de los celulares, incluyendo iPhone y gama media.",
     f16: { modelo: "gemma3-1b-it-q4f16_1-MLC", nombre: "Gemma 3 1B", vramMB: 711, descargaMB: 563 },
     f32: { modelo: "Qwen3.5-0.8B-q4f32_1-MLC", nombre: "Qwen 3.5 0.8B", vramMB: 1894, descargaMB: 424 },
+    cpu: {
+      modelo: GGUF("unsloth/Qwen3.5-0.8B-GGUF", "Qwen3.5-0.8B-Q4_0.gguf"),
+      nombre: "Qwen 3.5 0.8B",
+      vramMB: 0,
+      descargaMB: 507,
+    },
   },
   {
     id: "recomendado",
@@ -34,6 +44,12 @@ export const NIVELES: Nivel[] = [
     descripcion: "Mejores respuestas y el modo rAI completo; para celulares con 6 GB de RAM o más.",
     f16: { modelo: "Qwen3.5-2B-q4f16_1-MLC", nombre: "Qwen 3.5 2B", vramMB: 2245, descargaMB: 1059 },
     f32: { modelo: "Qwen3.5-2B-q4f32_1-MLC", nombre: "Qwen 3.5 2B", vramMB: 2592, descargaMB: 1059 },
+    cpu: {
+      modelo: GGUF("unsloth/Qwen3.5-2B-GGUF", "Qwen3.5-2B-Q4_0.gguf"),
+      nombre: "Qwen 3.5 2B",
+      vramMB: 0,
+      descargaMB: 1215,
+    },
   },
   {
     id: "potente",
@@ -53,6 +69,7 @@ export const NIVELES: Nivel[] = [
 ];
 
 export function nivelesPara(d: Dispositivo): Nivel[] {
+  if (d.cpu) return NIVELES.filter((n) => n.cpu);
   return NIVELES.filter((n) => !n.soloComputadora || !d.movil);
 }
 
@@ -64,14 +81,21 @@ export interface Dispositivo {
   ios: boolean;
   gpu?: string;
   motivo?: string; // por qué no hay WebGPU, si aplica
+  cpu: boolean; // correr en el procesador (sin WebGPU, o porque la GPU no aguantó)
+  nucleos: number;
 }
 
-export async function detectarDispositivo(): Promise<Dispositivo> {
+export async function detectarDispositivo(forzarCPU = false): Promise<Dispositivo> {
+  const d = await detectarGPU();
+  return { ...d, cpu: forzarCPU || !d.webgpu };
+}
+
+async function detectarGPU(): Promise<Omit<Dispositivo, "cpu">> {
   const ua = navigator.userAgent;
   const ios = /iPhone|iPad|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
   const movil = ios || /Android|Mobile/i.test(ua);
   const ramGB = (navigator as Navigator & { deviceMemory?: number }).deviceMemory;
-  const base = { movil, ios, ramGB };
+  const base = { movil, ios, ramGB, nucleos: navigator.hardwareConcurrency || 1 };
 
   if (!window.isSecureContext) {
     return {
@@ -100,6 +124,8 @@ export async function detectarDispositivo(): Promise<Dispositivo> {
 }
 
 export function nivelSugerido(d: Dispositivo): NivelId {
+  // En el procesador el modelo grande va muy lento: siempre el ligero.
+  if (d.cpu) return "ligero";
   // iOS no reporta RAM y Safari corta las pestañas que usan mucha memoria: mejor ir a la segura.
   if (d.ios) return "ligero";
   if (d.ramGB === undefined) return d.movil ? "ligero" : "recomendado";
@@ -109,6 +135,7 @@ export function nivelSugerido(d: Dispositivo): NivelId {
 }
 
 export function varianteDe(nivel: Nivel, d: Dispositivo): Variante {
+  if (d.cpu && nivel.cpu) return nivel.cpu;
   return d.f16 || !nivel.f32 ? nivel.f16 : nivel.f32;
 }
 
